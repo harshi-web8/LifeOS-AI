@@ -1,0 +1,6 @@
+{
+  "name": "LifeOS AI – Personal Life Intelligence",
+  "description": "Futuristic AI-powered personal life intelligence platform with smart timetable, study management, habit tracking, health analytics, and Gemini AI assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

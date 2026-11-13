@@ -1,0 +1,243 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and personal biometric configuration",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "firstName": { "type": "string", "maxLength": 64 },
+        "lastName": { "type": "string", "maxLength": 64 },
+        "photoURL": { "type": "string", "maxLength": 512 },
+        "bio": { "type": "string", "maxLength": 500 },
+        "wakeUpTime": { "type": "string", "maxLength": 16 },
+        "sleepTime": { "type": "string", "maxLength": 16 },
+        "dailyStudyTargetHours": { "type": "number" },
+        "dailyStepGoal": { "type": "number" },
+        "dailyWaterGoalMl": { "type": "number" },
+        "hasSeededStarterData": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["uid", "email", "firstName"]
+    },
+    "TaskItem": {
+      "title": "TaskItem",
+      "description": "Personal task item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "category": { "type": "string", "enum": ["Work", "Study", "Health", "Personal", "Hobby"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "deadline": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "title", "priority", "status"]
+    },
+    "NoteItem": {
+      "title": "NoteItem",
+      "description": "Smart note with tags and AI summaries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "content": { "type": "string", "maxLength": 20000 },
+        "category": { "type": "string", "maxLength": 64 },
+        "isPinned": { "type": "boolean" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "title", "content"]
+    },
+    "TimetableSlot": {
+      "title": "TimetableSlot",
+      "description": "Scheduled time block in user's weekly timetable",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "dayOfWeek": { "type": "string", "maxLength": 32 },
+        "startTime": { "type": "string", "maxLength": 16 },
+        "endTime": { "type": "string", "maxLength": 16 },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 64 },
+        "color": { "type": "string", "maxLength": 32 },
+        "location": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "dayOfWeek", "startTime", "endTime", "title"]
+    },
+    "StudyItem": {
+      "title": "StudyItem",
+      "description": "Study management item such as subject, exam countdown, or goal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["subject", "exam", "assignment", "goal"] },
+        "title": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "deadline": { "type": "string", "maxLength": 64 },
+        "targetHours": { "type": "number" },
+        "completedHours": { "type": "number" },
+        "gradeTarget": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "maxLength": 32 },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "type", "title"]
+    },
+    "HealthLog": {
+      "title": "HealthLog",
+      "description": "Daily health, fitness and well-being log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 32 },
+        "steps": { "type": "number" },
+        "waterIntakeMl": { "type": "number" },
+        "sleepHours": { "type": "number" },
+        "exerciseMinutes": { "type": "number" },
+        "mood": { "type": "string", "enum": ["great", "good", "neutral", "tired", "stressed"] },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "date"]
+    },
+    "HabitItem": {
+      "title": "HabitItem",
+      "description": "Habit with daily completion tracking and streaks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 64 },
+        "frequency": { "type": "string", "enum": ["daily", "weekly"] },
+        "streak": { "type": "number" },
+        "bestStreak": { "type": "number" },
+        "completedDates": { "type": "array" },
+        "color": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "title"]
+    },
+    "HobbyItem": {
+      "title": "HobbyItem",
+      "description": "Personal hobby and time tracking record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 64 },
+        "weeklyGoalHours": { "type": "number" },
+        "totalHoursLogged": { "type": "number" },
+        "lastSessionDate": { "type": "string", "maxLength": 32 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "color": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "title", "category"]
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "Calendar event or scheduled milestone",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "date": { "type": "string", "maxLength": 32 },
+        "time": { "type": "string", "maxLength": 32 },
+        "category": { "type": "string", "maxLength": 64 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "color": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "userId", "title", "date"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "User notification reminder or deadline alert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 1000 },
+        "type": { "type": "string", "enum": ["reminder", "task", "study", "health", "deadline"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "title", "message", "read"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Chat log between user and AI Assistant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string", "maxLength": 20000 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles restricted to owner"
+    },
+    "/tasks/{taskId}": {
+      "schema": "TaskItem",
+      "description": "Tasks owned by the user"
+    },
+    "/notes/{noteId}": {
+      "schema": "NoteItem",
+      "description": "Smart notes owned by the user"
+    },
+    "/timetable/{slotId}": {
+      "schema": "TimetableSlot",
+      "description": "Timetable slots owned by the user"
+    },
+    "/study_items/{studyId}": {
+      "schema": "StudyItem",
+      "description": "Study subjects, exams, and milestones owned by user"
+    },
+    "/health_logs/{logId}": {
+      "schema": "HealthLog",
+      "description": "Daily health tracker logs owned by user"
+    },
+    "/habits/{habitId}": {
+      "schema": "HabitItem",
+      "description": "Habit items owned by user"
+    },
+    "/hobbies/{hobbyId}": {
+      "schema": "HobbyItem",
+      "description": "Hobby items owned by user"
+    },
+    "/calendar_events/{eventId}": {
+      "schema": "CalendarEvent",
+      "description": "Calendar events owned by user"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationItem",
+      "description": "Notifications owned by user"
+    },
+    "/chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages owned by user"
+    }
+  }
+}

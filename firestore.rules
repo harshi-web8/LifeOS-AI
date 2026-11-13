@@ -1,0 +1,396 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net - default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOptString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isOptNumber(data, field) {
+      return !(field in data) || (data[field] is int || data[field] is float);
+    }
+
+    function isOptBool(data, field) {
+      return !(field in data) || data[field] is bool;
+    }
+
+    // Entity validation helpers
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'firstName'])
+        && data.keys().hasOnly([
+          'uid', 'email', 'firstName', 'lastName', 'photoURL', 'bio',
+          'wakeUpTime', 'sleepTime', 'dailyStudyTargetHours',
+          'dailyStepGoal', 'dailyWaterGoalMl', 'hasSeededStarterData',
+          'createdAt', 'updatedAt'
+        ])
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() <= 128
+        && data.firstName is string && data.firstName.size() <= 64
+        && isOptString(data, 'lastName', 64)
+        && isOptString(data, 'photoURL', 512)
+        && isOptString(data, 'bio', 500)
+        && isOptString(data, 'wakeUpTime', 16)
+        && isOptString(data, 'sleepTime', 16)
+        && isOptNumber(data, 'dailyStudyTargetHours')
+        && isOptNumber(data, 'dailyStepGoal')
+        && isOptNumber(data, 'dailyWaterGoalMl')
+        && isOptBool(data, 'hasSeededStarterData')
+        && isOptString(data, 'createdAt', 64)
+        && isOptString(data, 'updatedAt', 64);
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'category', 'priority', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'title', 'description', 'category',
+          'priority', 'deadline', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && isOptString(data, 'description', 2000)
+        && data.category is string && data.category in ['Work', 'Study', 'Health', 'Personal', 'Hobby']
+        && data.priority is string && data.priority in ['low', 'medium', 'high']
+        && isOptString(data, 'deadline', 64)
+        && data.status is string && data.status in ['pending', 'completed']
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isValidNote(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'content', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'title', 'content', 'category',
+          'isPinned', 'tags', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.content is string && data.content.size() <= 20000
+        && isOptString(data, 'category', 64)
+        && isOptBool(data, 'isPinned')
+        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 20 && (data.tags.size() == 0 || data.tags[0] is string)))
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isValidTimetableSlot(data) {
+      return data.keys().hasAll(['id', 'userId', 'dayOfWeek', 'startTime', 'endTime', 'title', 'category', 'color'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'dayOfWeek', 'startTime', 'endTime',
+          'title', 'category', 'color', 'location', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.dayOfWeek is string && data.dayOfWeek.size() <= 32
+        && data.startTime is string && data.startTime.size() <= 16
+        && data.endTime is string && data.endTime.size() <= 16
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.category is string && data.category.size() <= 64
+        && data.color is string && data.color.size() <= 32
+        && isOptString(data, 'location', 128)
+        && isOptString(data, 'createdAt', 64);
+    }
+
+    function isValidStudyItem(data) {
+      return data.keys().hasAll(['id', 'userId', 'type', 'title'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'type', 'title', 'subject', 'deadline',
+          'targetHours', 'completedHours', 'gradeTarget', 'status',
+          'notes', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.type is string && data.type in ['subject', 'exam', 'assignment', 'goal']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && isOptString(data, 'subject', 100)
+        && isOptString(data, 'deadline', 64)
+        && isOptNumber(data, 'targetHours')
+        && isOptNumber(data, 'completedHours')
+        && isOptString(data, 'gradeTarget', 32)
+        && isOptString(data, 'status', 32)
+        && isOptString(data, 'notes', 2000)
+        && isOptString(data, 'createdAt', 64);
+    }
+
+    function isValidHealthLog(data) {
+      return data.keys().hasAll(['id', 'userId', 'date', 'steps', 'waterIntakeMl', 'sleepHours', 'exerciseMinutes', 'mood'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'date', 'steps', 'waterIntakeMl',
+          'sleepHours', 'exerciseMinutes', 'mood', 'notes', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.date is string && data.date.size() <= 32
+        && (data.steps is int || data.steps is float) && data.steps >= 0 && data.steps <= 200000
+        && (data.waterIntakeMl is int || data.waterIntakeMl is float) && data.waterIntakeMl >= 0 && data.waterIntakeMl <= 20000
+        && (data.sleepHours is int || data.sleepHours is float) && data.sleepHours >= 0 && data.sleepHours <= 24
+        && (data.exerciseMinutes is int || data.exerciseMinutes is float) && data.exerciseMinutes >= 0 && data.exerciseMinutes <= 1440
+        && data.mood is string && data.mood in ['great', 'good', 'neutral', 'tired', 'stressed']
+        && isOptString(data, 'notes', 1000)
+        && isOptString(data, 'createdAt', 64);
+    }
+
+    function isValidHabit(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'category', 'frequency', 'streak', 'bestStreak', 'completedDates', 'color'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'title', 'category', 'frequency',
+          'streak', 'bestStreak', 'completedDates', 'color', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 150
+        && data.category is string && data.category.size() <= 64
+        && data.frequency is string && data.frequency in ['daily', 'weekly']
+        && (data.streak is int || data.streak is float) && data.streak >= 0
+        && (data.bestStreak is int || data.bestStreak is float) && data.bestStreak >= 0
+        && data.completedDates is list && data.completedDates.size() <= 3660
+        && (data.completedDates.size() == 0 || data.completedDates[0] is string)
+        && data.color is string && data.color.size() <= 32
+        && isOptString(data, 'createdAt', 64);
+    }
+
+    function isValidHobby(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'category', 'weeklyGoalHours', 'totalHoursLogged', 'color'])
+        && data.keys().hasOnly([
+          'id', 'userId', 'title', 'category', 'weeklyGoalHours',
+          'totalHoursLogged', 'lastSessionDate', 'notes', 'color', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 150
+        && data.category is string && data.category.size() <= 64
+        && (data.weeklyGoalHours is int || data.weeklyGoalHours is float) && data.weeklyGoalHours >= 0
+        && (data.totalHoursLogged is int || data.totalHoursLogged is float) && data.totalHoursLogged >= 0
+        && isOptString(data, 'lastSessionDate', 32)
+        && isOptString(data, 'notes', 1000)
+        && data.color is string && data.color.size() <= 32
+        && isOptString(data, 'createdAt', 64);
+    }
+
+    function isValidCalendarEvent(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'date', 'category'])
+        && data.keys().hasOnly(['id', 'userId', 'title', 'date', 'time', 'category', 'description', 'color'])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.date is string && data.date.size() <= 32
+        && isOptString(data, 'time', 32)
+        && data.category is string && data.category.size() <= 64
+        && isOptString(data, 'description', 1000)
+        && isOptString(data, 'color', 32);
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'message', 'type', 'read', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'title', 'message', 'type', 'read', 'createdAt'])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.message is string && data.message.size() <= 1000
+        && data.type is string && data.type in ['reminder', 'task', 'study', 'health', 'deadline']
+        && data.read is bool
+        && data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['id', 'userId', 'role', 'content', 'timestamp'])
+        && data.keys().hasOnly(['id', 'userId', 'role', 'content', 'timestamp'])
+        && isValidId(data.id)
+        && data.userId == request.auth.uid
+        && data.role is string && data.role in ['user', 'assistant']
+        && data.content is string && data.content.size() <= 20000
+        && data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    // User Profile (fixed to validate `uid == request.auth.uid` matching UserProfile schema)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if isSignedIn() && existing().uid == request.auth.uid;
+      allow create: if isValidId(userId) && isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isValidId(userId) && isOwner(userId) && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'email', 'firstName', 'lastName', 'photoURL', 'bio',
+          'wakeUpTime', 'sleepTime', 'dailyStudyTargetHours',
+          'dailyStepGoal', 'dailyWaterGoalMl', 'hasSeededStarterData', 'updatedAt'
+        ]);
+      allow delete: if isValidId(userId) && isOwner(userId);
+    }
+
+    // Tasks Collection
+    match /tasks/{taskId} {
+      allow get: if isValidId(taskId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(taskId) && isSignedIn() && isValidTask(incoming());
+      allow update: if isValidId(taskId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidTask(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'description', 'category', 'priority', 'deadline', 'status', 'updatedAt'
+        ]);
+      allow delete: if isValidId(taskId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Smart Notes Collection
+    match /notes/{noteId} {
+      allow get: if isValidId(noteId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(noteId) && isSignedIn() && isValidNote(incoming());
+      allow update: if isValidId(noteId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidNote(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'content', 'category', 'isPinned', 'tags', 'updatedAt'
+        ]);
+      allow delete: if isValidId(noteId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Timetable Collection
+    match /timetable/{slotId} {
+      allow get: if isValidId(slotId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(slotId) && isSignedIn() && isValidTimetableSlot(incoming());
+      allow update: if isValidId(slotId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidTimetableSlot(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'dayOfWeek', 'startTime', 'endTime', 'title', 'category', 'color', 'location'
+        ]);
+      allow delete: if isValidId(slotId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Study Items Collection
+    match /study_items/{studyId} {
+      allow get: if isValidId(studyId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(studyId) && isSignedIn() && isValidStudyItem(incoming());
+      allow update: if isValidId(studyId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidStudyItem(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'type', 'title', 'subject', 'deadline', 'targetHours',
+          'completedHours', 'gradeTarget', 'status', 'notes'
+        ]);
+      allow delete: if isValidId(studyId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Health Logs Collection
+    match /health_logs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(logId) && isSignedIn() && isValidHealthLog(incoming());
+      allow update: if isValidId(logId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidHealthLog(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'steps', 'waterIntakeMl', 'sleepHours', 'exerciseMinutes', 'mood', 'notes'
+        ]);
+      allow delete: if isValidId(logId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Habits Collection
+    match /habits/{habitId} {
+      allow get: if isValidId(habitId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(habitId) && isSignedIn() && isValidHabit(incoming());
+      allow update: if isValidId(habitId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidHabit(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'category', 'frequency', 'streak', 'bestStreak', 'completedDates', 'color'
+        ]);
+      allow delete: if isValidId(habitId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Hobbies Collection
+    match /hobbies/{hobbyId} {
+      allow get: if isValidId(hobbyId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(hobbyId) && isSignedIn() && isValidHobby(incoming());
+      allow update: if isValidId(hobbyId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidHobby(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'category', 'weeklyGoalHours', 'totalHoursLogged', 'lastSessionDate', 'notes', 'color'
+        ]);
+      allow delete: if isValidId(hobbyId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Calendar Events Collection
+    match /calendar_events/{eventId} {
+      allow get: if isValidId(eventId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(eventId) && isSignedIn() && isValidCalendarEvent(incoming());
+      allow update: if isValidId(eventId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidCalendarEvent(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'date', 'time', 'category', 'description', 'color'
+        ]);
+      allow delete: if isValidId(eventId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(notificationId) && isSignedIn() && isValidNotification(incoming());
+      allow update: if isValidId(notificationId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidNotification(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly(['read', 'title', 'message']);
+      allow delete: if isValidId(notificationId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Chat Messages Collection
+    match /chat_messages/{messageId} {
+      allow get: if isValidId(messageId) && isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+      allow create: if isValidId(messageId) && isSignedIn() && isValidChatMessage(incoming());
+      allow update: if isValidId(messageId) && isSignedIn() && existing().userId == request.auth.uid
+        && isValidChatMessage(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().diff(existing()).affectedKeys().hasOnly(['content']);
+      allow delete: if isValidId(messageId) && isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}
